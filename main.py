@@ -2,16 +2,19 @@ import numpy as np
 import cv2 as cv
 import glob
 
-## code from https://docs.opencv.org/4.13.0/dc/dbb/tutorial_py_calibration.html
+## codigo de https://docs.opencv.org/4.13.0/dc/dbb/tutorial_py_calibration.html
 
 # termination criteria
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
 #flags = cv.CALIB_CB_ADAPTIVE_THRESH + cv.CALIB_CB_NORMALIZE_IMAGE
 
+ver_corners = 6
+hor_corners = 9
+
 # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
-objp = np.zeros((6*9,3), np.float32)
-objp[:,:2] = np.mgrid[0:6,0:9].T.reshape(-1,2)
+objp = np.zeros((ver_corners*hor_corners,3), np.float32)
+objp[:,:2] = np.mgrid[0:ver_corners,0:hor_corners].T.reshape(-1,2)
 
 # Arrays to store object points and image points from all the images.
 objpoints = [] # 3d point in real world space
@@ -25,19 +28,31 @@ for fname in images:
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
     # Find the chess board corners
-    ret, corners = cv.findChessboardCorners(gray, (6,9), None)
+    ret, corners = cv.findChessboardCorners(gray, (ver_corners,hor_corners), None)
 
     # If found, add object points, image points (after refining them)
     if ret == True:
         objpoints.append(objp)
 
-        corners2 = cv.cornerSubPix(gray,corners, (11,11), (-1,-1), criteria)
+        corners2 = cv.cornerSubPix(gray, corners, (11,11), (-1,-1), criteria)
         imgpoints.append(corners2)
 
         # Draw and display the corners
-        cv.drawChessboardCorners(img, (6,9), corners2, ret)
+        cv.drawChessboardCorners(img, (ver_corners,hor_corners), corners2, ret)
         cv.imshow('img', img)
-        print("mostrando imagem")
         cv.waitKey()
 
 cv.destroyAllWindows()
+
+ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+
+img = cv.imread(images[0]) # preciso escolher uma imagem
+h,  w = img.shape[:2]
+newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
+
+dst = cv.undistort(img, mtx, dist, None, newcameramtx)
+
+x, y, w, h = roi
+dst = dst[y:y+h, x:x+w]
+cv.imshow('img calibrada', dst)
+cv.waitKey()
